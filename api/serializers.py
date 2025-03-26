@@ -1,17 +1,14 @@
 from rest_framework import serializers
 from netbox.api.serializers import NetBoxModelSerializer
 from ..models import CablePath, PathSegment
-from dcim.api.serializers import NestedDeviceSerializer, NestedPowerPortSerializer
-from dcim.models import Cable
+from dcim.api.serializers import NestedDeviceSerializer, NestedPowerPortSerializer, NestedInterfaceSerializer
 
 class PathSegmentSerializer(NetBoxModelSerializer):
-    cable = serializers.HyperlinkedIdentityField(
-        view_name='dcim-api:cable-detail'
-    )
+    cable = serializers.HyperlinkedIdentityField(view_name='dcim-api:cable-detail')
     device_a = NestedDeviceSerializer()
-    port_a = NestedPowerPortSerializer()
+    port_a = serializers.SerializerMethodField()
     device_b = NestedDeviceSerializer()
-    port_b = NestedPowerPortSerializer()
+    port_b = serializers.SerializerMethodField()
 
     class Meta:
         model = PathSegment
@@ -22,11 +19,24 @@ class PathSegmentSerializer(NetBoxModelSerializer):
             'display'
         ]
 
+    def get_port_a(self, obj):
+        if obj.port_a_type == 'PowerPort':
+            return NestedPowerPortSerializer(obj.port_a).data
+        elif obj.port_a_type == 'Interface':
+            return NestedInterfaceSerializer(obj.port_a).data
+
+    def get_port_b(self, obj):
+        if obj.port_b_type == 'PowerPort':
+            return NestedPowerPortSerializer(obj.port_b).data
+        elif obj.port_b_type == 'Interface':
+            return NestedInterfaceSerializer(obj.port_b).data
+
+
 class CablePathSerializer(NetBoxModelSerializer):
     start_device = NestedDeviceSerializer()
-    start_port = NestedPowerPortSerializer()
+    start_port = serializers.SerializerMethodField()
     end_device = NestedDeviceSerializer()
-    end_port = NestedPowerPortSerializer()
+    end_port = serializers.SerializerMethodField()
     segments = PathSegmentSerializer(many=True, read_only=True)
     path_length = serializers.IntegerField(read_only=True)
     is_complete = serializers.BooleanField(read_only=True)
@@ -38,34 +48,16 @@ class CablePathSerializer(NetBoxModelSerializer):
             'end_device', 'end_port', 'segments',
             'path_length', 'is_complete', 'display'
         ]
-        read_only_fields = [
-            'segments', 'path_length', 'is_complete'
-        ]
+        read_only_fields = ['segments', 'path_length', 'is_complete']
 
-class TraceResultSerializer(serializers.Serializer):
-    """
-    Сериализатор для результатов трассировки
-    """
-    start_device = NestedDeviceSerializer()
-    start_port = NestedPowerPortSerializer()
-    end_device = NestedDeviceSerializer()
-    end_port = NestedPowerPortSerializer()
-    segments = serializers.ListField(
-        child=serializers.DictField()
-    )
-    length = serializers.IntegerField()
-    complete = serializers.BooleanField()
+    def get_start_port(self, obj):
+        if obj.start_port_type == 'PowerPort':
+            return NestedPowerPortSerializer(obj.start_port).data
+        elif obj.start_port_type == 'Interface':
+            return NestedInterfaceSerializer(obj.start_port).data
 
-    def to_representation(self, instance):
-        """
-        Преобразует результат трассировки в формат API
-        """
-        return {
-            'start_device': instance['start_device'],
-            'start_port': instance['start_port'],
-            'end_device': instance.get('end_device'),
-            'end_port': instance.get('end_port'),
-            'segments': instance.get('segments', []),
-            'length': len(instance.get('segments', [])),
-            'complete': instance.get('complete', False)
-        }
+    def get_end_port(self, obj):
+        if obj.end_port_type == 'PowerPort':
+            return NestedPowerPortSerializer(obj.end_port).data
+        elif obj.end_port_type == 'Interface':
+            return NestedInterfaceSerializer(obj.end_port).data
