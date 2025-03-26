@@ -1,7 +1,6 @@
-# models.py
 from django.db import models
 from netbox.models import NetBoxModel
-from dcim.models import Cable, Device, PowerPort, PowerOutlet
+from dcim.models import Cable, Device, PowerPort, PowerOutlet, Interface
 
 class CablePath(NetBoxModel):
     """
@@ -13,28 +12,23 @@ class CablePath(NetBoxModel):
         on_delete=models.CASCADE,
         related_name='start_cable_paths'
     )
-    start_port = models.ForeignKey(
-        to=PowerPort,
-        on_delete=models.CASCADE,
-        related_name='start_cable_paths'
-    )
+    start_port_type = models.CharField(max_length=50)  # Тип начального порта (PowerPort, Interface, etc.)
+    start_port_id = models.PositiveIntegerField()  # ID начального порта
     end_device = models.ForeignKey(
         to=Device,
-        on_delete=models.CASCADE,
-        related_name='end_cable_paths'
-    )
-    end_port = models.ForeignKey(
-        to=PowerPort,
         on_delete=models.CASCADE,
         related_name='end_cable_paths',
         null=True,
         blank=True
     )
+    end_port_type = models.CharField(max_length=50, null=True, blank=True)  # Тип конечного порта
+    end_port_id = models.PositiveIntegerField(null=True, blank=True)  # ID конечного порта
     is_complete = models.BooleanField(default=False)
     path_length = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"{self.name} ({self.start_device} → {self.end_device})"
+
 
 class PathSegment(NetBoxModel):
     """
@@ -56,21 +50,15 @@ class PathSegment(NetBoxModel):
         on_delete=models.CASCADE,
         related_name='segment_a_ends'
     )
-    port_a = models.ForeignKey(
-        to=PowerPort,
-        on_delete=models.CASCADE,
-        related_name='segment_a_ends'
-    )
+    port_a_type = models.CharField(max_length=50)  # Тип порта A
+    port_a_id = models.PositiveIntegerField()  # ID порта A
     device_b = models.ForeignKey(
         to=Device,
         on_delete=models.CASCADE,
         related_name='segment_b_ends'
     )
-    port_b = models.ForeignKey(
-        to=PowerPort,
-        on_delete=models.CASCADE,
-        related_name='segment_b_ends'
-    )
+    port_b_type = models.CharField(max_length=50)  # Тип порта B
+    port_b_id = models.PositiveIntegerField()  # ID порта B
 
     class Meta:
         ordering = ['cable_path', 'sequence']
