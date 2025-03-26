@@ -1,7 +1,5 @@
-<!-- templates/cable_tracert/path_visualization.html -->
 {% extends 'base.html' %}
 {% load static %}
-
 {% block content %}
 <div class="row">
     <div class="col-md-12">
@@ -16,7 +14,6 @@
     </div>
 </div>
 {% endblock %}
-
 {% block javascript %}
 <script src="{% static 'cable_tracert/js/vis-network.min.js' %}"></script>
 <script>
@@ -28,18 +25,12 @@ document.addEventListener('DOMContentLoaded', function() {
         {id: {{ segment.device_b.id }}, label: '{{ segment.device_b.name }}'},
         {% endfor %}
     ]);
-    
     const edges = new vis.DataSet([
         {% for segment in object.segments.all %}
         {from: {{ segment.device_a.id }}, to: {{ segment.device_b.id }}, label: 'Кабель #{{ segment.cable.pk }}'},
         {% endfor %}
     ]);
-    
-    const data = {
-        nodes: nodes,
-        edges: edges
-    };
-    
+    const data = { nodes: nodes, edges: edges };
     const options = {
         layout: {
             hierarchical: {
@@ -49,17 +40,12 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         edges: {
             arrows: 'to',
-            smooth: {
-                type: 'cubicBezier'
-            }
+            smooth: { type: 'cubicBezier' }
         },
         physics: {
-            hierarchicalRepulsion: {
-                nodeDistance: 200
-            }
+            hierarchicalRepulsion: { nodeDistance: 200 }
         }
     };
-    
     new vis.Network(container, data, options);
 });
 </script>
