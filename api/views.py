@@ -1,33 +1,35 @@
-from rest_framework.viewsets import ViewSet
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from dcim.models import PowerPort
-from ..utils.tracer import trace_cable_path
-from .serializers import TraceResultSerializer
+from dcim.models import PowerPort, Interface
+from .serializers import CablePathSerializer
+from .utils.tracer import trace_cable_path
 
-class CableTracertViewSet(ViewSet):
+class CableTracertViewSet(viewsets.ViewSet):
+    @action(detail=False, methods=['get'])
     def trace(self, request):
         port_id = request.query_params.get('port_id')
-        if not port_id:
-            return Response({'error': 'port_id parameter is required'}, status=400)
-            
+        port_type = request.query_params.get('port_type', 'PowerPort')  # По умолчанию PowerPort
+
+        if not port_id or not port_type:
+            return Response({'error': 'port_id and port_type parameters are required'}, status=400)
+
         try:
-            port = PowerPort.objects.get(id=port_id)
-        except PowerPort.DoesNotExist:
-            return Response({'error': 'PowerPort not found'}, status=404)
-            
+            if port_type == 'PowerPort':
+                port = PowerPort.objects.get(id=port_id)
+            elif port_type == 'Interface':
+                port = Interface.objects.get(id=port_id)
+            else:
+                return Response({'error': 'Invalid port_type'}, status=400)
+        except (PowerPort.DoesNotExist, Interface.DoesNotExist):
+            return Response({'error': 'Port not found'}, status=404)
+
         path = trace_cable_path(port)
-        result = {
+
+        serializer = CablePathSerializer({
             'start_device': port.device,
             'start_port': port,
             'segments': path,
-            'complete': False
-        }
-        
-        if path:
-            last_segment = path[-1]
-            result['end_device'] = last_segment.get('device_b')
-            result['end_port'] = last_segment.get('port_b')
-            result['complete'] = True if not isinstance(last_segment['port_b'], PowerOutlet) else False
-            
-        serializer = TraceResultSerializer(result)
+            'end_device': path[-1]['device_b'] if path else None,
+            'end_port': path[-1]['port_b'] if path else None
+        })
         return Response(serializer.data)
