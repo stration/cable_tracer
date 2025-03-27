@@ -7,8 +7,9 @@ setup(
     include_package_data=True,
     install_requires=[
         # Укажите зависимости, если они есть
+        'netbox>=4.2.6',
     ],
-    author="Your Name",
+    author="Igor Mentoyan",
     author_email="your.email@example.com",
     description="NetBox plugin for full cable path tracing",
     url="https://github.com/stration/cable_tracer",
@@ -17,5 +18,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8",
+        python_requires=">=3.8",
 )
