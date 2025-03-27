@@ -8,8 +8,7 @@ setup(
     install_requires=[
         "Django>=3.2,<4.0",
         "djangorestframework>=3.12,<3.15",
-        "netbox>=4.2.2,<4.3.0",
-        "vis-network==9.1.0"
+        "netbox>=4.2.2,<4.3.0"
     ],
     author="Igor Mentoyan",
     author_email="your.email@example.com",
