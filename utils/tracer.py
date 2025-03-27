@@ -13,6 +13,7 @@ def trace_cable_path(start_port):
 
     while current_termination:
         if current_termination.id in visited:
+            # Обнаружен цикл
             break
         visited.add(current_termination.id)
 
@@ -23,6 +24,7 @@ def trace_cable_path(start_port):
         ).first()
 
         if not cable:
+            # Если нет кабеля, завершаем трассировку
             break
 
         # Находим противоположный конец кабеля
@@ -33,8 +35,10 @@ def trace_cable_path(start_port):
                 break
 
         if not other_end:
+            # Если нет противоположного конца, завершаем трассировку
             break
 
+        # Формируем сегмент пути
         segment = {
             'cable': cable,
             'a_side': current_termination,
