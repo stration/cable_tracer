@@ -1,35 +1,39 @@
-from rest_framework.decorators import action
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from dcim.models import PowerPort, Interface
-from .serializers import CablePathSerializer
-from .utils.tracer import trace_cable_path
+from rest_framework import status
+from dcim.models import PowerPort
+from ..utils.tracer import trace_cable_path
+from .serializers import TraceResultSerializer
 
-class CableTracertViewSet(viewsets.ViewSet):
-    @action(detail=False, methods=['get'])
-    def trace(self, request):
+class CableTraceView(APIView):
+    """
+    API для трассировки кабелей (NetBox 4.2.6 compatible)
+    """
+    def get(self, request):
         port_id = request.query_params.get('port_id')
-        port_type = request.query_params.get('port_type', 'PowerPort')  # По умолчанию PowerPort
-
-        if not port_id or not port_type:
-            return Response({'error': 'port_id and port_type parameters are required'}, status=400)
+        if not port_id:
+            return Response(
+                {'error': 'Parameter "port_id" is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
-            if port_type == 'PowerPort':
-                port = PowerPort.objects.get(id=port_id)
-            elif port_type == 'Interface':
-                port = Interface.objects.get(id=port_id)
-            else:
-                return Response({'error': 'Invalid port_type'}, status=400)
-        except (PowerPort.DoesNotExist, Interface.DoesNotExist):
-            return Response({'error': 'Port not found'}, status=404)
+            port = PowerPort.objects.get(id=port_id)
+        except PowerPort.DoesNotExist:
+            return Response(
+                {'error': f'PowerPort with id {port_id} not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         path = trace_cable_path(port)
+        result = {
+            'start': {
+                'device': port.device,
+                'port': port
+            },
+            'path': path,
+            'is_complete': bool(path) and isinstance(path[-1]['b_side'], PowerFeed)
+        }
 
-        serializer = CablePathSerializer({
-            'start_device': port.device,
-            'start_port': port,
-            'segments': path,
-            'end_device': path[-1]['device_b'] if path else None,
-            'end_port': path[-1]['port_b'] if path else None
-        })
+        serializer = TraceResultSerializer(result)
         return Response(serializer.data)
