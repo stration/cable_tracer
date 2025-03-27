@@ -1,61 +1,62 @@
-from dcim.models import Cable, PowerPort, PowerOutlet, Interface
-from collections import deque
 from django.contrib.contenttypes.models import ContentType
+from dcim.models import Cable, PowerPort, PowerOutlet, PowerFeed
+from collections import deque
 
 def trace_cable_path(start_port):
     """
-    Трассирует путь кабеля от начального порта до конечной точки
+    Трассировка кабеля с учетом особенностей NetBox 4.2.6
+    Поддерживает PowerPort -> PowerOutlet -> PowerPort -> PowerFeed
     """
-    visited = set()
     path = []
-    queue = deque([(start_port, [])])
+    current_termination = start_port
+    visited = set()
 
-    while queue:
-        current_port, current_path = queue.popleft()
+    while current_termination:
+        if current_termination.id in visited:
+            break
+        visited.add(current_termination.id)
 
-        # Проверка на циклы
-        if current_port.id in visited:
-            continue
-        visited.add(current_port.id)
+        # Получаем кабель, подключенный к текущей точке
+        cable = Cable.objects.filter(
+            _terminations__object_id=current_termination.id,
+            _terminations__content_type=ContentType.objects.get_for_model(current_termination)
+        ).first()
 
-        # Получаем все кабели, подключенные к текущему порту
-        cables = Cable.objects.filter(
-            _terminations__object_id=current_port.id,
-            _terminations__content_type=ContentType.objects.get_for_model(current_port)
-        ).prefetch_related('_terminations')
+        if not cable:
+            break
 
-        if not cables:
-            # Конечная точка пути
-            return current_path
+        # Находим противоположный конец кабеля
+        other_end = None
+        for termination in cable.terminations.all():
+            if termination.id != current_termination.id:
+                other_end = termination
+                break
 
-        for cable in cables:
-            # Находим противоположный конец кабеля
-            for termination in cable._terminations.all():
-                if termination.object_id != current_port.id:
-                    term_model = termination.content_type.model_class()
-                    other_end = term_model.objects.get(id=termination.object_id)
+        if not other_end:
+            break
 
-                    new_path = current_path + [{
-                        'cable': cable,
-                        'port_a': current_port,
-                        'port_b': other_end,
-                        'device_a': current_port.device,
-                        'device_b': other_end.device if hasattr(other_end, 'device') else None
-                    }]
+        segment = {
+            'cable': cable,
+            'a_side': current_termination,
+            'b_side': other_end,
+            'device_a': getattr(current_termination, 'device', None),
+            'device_b': getattr(other_end, 'device', None)
+        }
+        path.append(segment)
 
-                    # Если это выходная розетка, ищем подключенный к ней порт
-                    if isinstance(other_end, PowerOutlet):
-                        connected_port = PowerPort.objects.filter(
-                            _connected_ports__object_id=other_end.id,
-                            _connected_ports__content_type=ContentType.objects.get_for_model(other_end)
-                        ).first()
-                        if connected_port:
-                            queue.append((connected_port, new_path))
-                    elif isinstance(other_end, Interface):
-                        # Добавляем поддержку сетевых интерфейсов
-                        queue.append((other_end, new_path))
-                    else:
-                        # Если нет дальнейших подключений, завершаем путь
-                        return new_path
+        # Определяем следующую точку трассировки
+        if isinstance(other_end, PowerOutlet):
+            # Ищем подключенный PowerPort
+            next_port = PowerPort.objects.filter(
+                _connected_port__object_id=other_end.id,
+                _connected_port__content_type=ContentType.objects.get_for_model(other_end)
+            ).first()
+            current_termination = next_port
+        elif isinstance(other_end, PowerFeed):
+            # Конец трассировки - достигли PowerFeed
+            break
+        else:
+            # Для других типов завершаем трассировку
+            break
 
     return path
