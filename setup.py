@@ -7,9 +7,9 @@ setup(
     include_package_data=True,
     install_requires=[
         "Django>=5.0,<6.0",
-        "djangorestframework>=3.15,<4.0"
+        "djangorestframework>=3.15,<4.0",
     ],
-    author="Igor Mentoyan",
+    author="Your Name",
     author_email="your.email@example.com",
     description="NetBox plugin for full cable path tracing",
     url="https://github.com/stration/cable_tracer",
@@ -18,5 +18,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-        python_requires=">=3.8",
+    python_requires=">=3.8",
 )
