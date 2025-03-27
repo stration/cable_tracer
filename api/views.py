@@ -1,10 +1,3 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from dcim.models import PowerPort
-from ..utils.tracer import trace_cable_path
-from .serializers import TraceResultSerializer
-
 class CableTraceView(APIView):
     """
     API для трассировки кабелей (NetBox 4.2.6 compatible)
@@ -18,18 +11,24 @@ class CableTraceView(APIView):
             )
 
         try:
-            port = PowerPort.objects.get(id=port_id)
+            port = PowerPort.objects.select_related('device').get(id=port_id)
         except PowerPort.DoesNotExist:
             return Response(
                 {'error': f'PowerPort with id {port_id} not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if not port.device:
+            return Response(
+                {'error': f'PowerPort with id {port_id} is not associated with a device'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         path = trace_cable_path(port)
         result = {
             'start': {
-                'device': port.device,
-                'port': port
+                'device': str(port.device),
+                'port': str(port)
             },
             'path': path,
             'is_complete': bool(path) and isinstance(path[-1]['b_side'], PowerFeed)
